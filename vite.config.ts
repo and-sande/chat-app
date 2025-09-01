@@ -15,6 +15,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/rundb": {
+        target: "http://localhost:8001",
+        changeOrigin: true,
+        secure: false,
+      },
       "/ws": {
         target: "ws://localhost:8000",
         changeOrigin: true,
