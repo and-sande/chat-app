@@ -15,8 +15,7 @@ export default function CompetitionDetail() {
     api.eventResults(id).then(r => { if (mounted) setResults(r) }).catch(()=>{})
     return () => { mounted = false }
   }, [id])
-  if (!comp) return <div className="panel">Competition not found.</div>
-
+  // compute memoized data regardless of comp to keep hook order stable
   const times = useMemo(() => results.map(r => r.time_sec).filter(Boolean) as number[], [results])
   const avg = times.length ? Math.round(times.reduce((a,b)=>a+b,0) / times.length) : 0
   const win = times.length ? times[0] : 0
@@ -24,6 +23,8 @@ export default function CompetitionDetail() {
     if (!km || !isFinite(km)) return timeSec
     return Math.round(timeSec / km)
   }
+
+  if (!comp) return <div className="panel">Loading competition…</div>
 
   return (
     <div>

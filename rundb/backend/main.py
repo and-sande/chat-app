@@ -91,6 +91,15 @@ def init_db():
         )
     ''')
 
+    # Profile visits per runner
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS rundb_runner_visits (
+            runner_id TEXT PRIMARY KEY,
+            count INTEGER DEFAULT 0,
+            last_visit TEXT
+        )
+    ''')
+
     # Seed if empty
     cur.execute('SELECT COUNT(*) FROM rundb_events')
     if (cur.fetchone() or [0])[0] == 0:
@@ -175,6 +184,8 @@ class RDRunner(BaseModel):
     club: Optional[str] = None
     country: Optional[str] = None
     avatar_url: Optional[str] = None
+    visits_count: Optional[int] = 0
+    last_visit: Optional[str] = None
 
 class ResultRow(BaseModel):
     id: str
@@ -191,6 +202,7 @@ class ResultRow(BaseModel):
     time_sec: Optional[int] = None
     behind: Optional[str] = None
     date: str
+    participants_total: Optional[int] = None
 
 class Stats(BaseModel):
     runners_count: int
@@ -312,10 +324,20 @@ def event_results(event_id: str):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute('''
-        SELECT id, event_id, race_id, runner_id, finish, bib_number, name, nation, club, class, time, time_sec, behind, date
-        FROM rundb_results
-        WHERE event_id = ?
-        ORDER BY CASE WHEN finish IS NULL THEN 99999 ELSE finish END ASC, time_sec ASC
+        SELECT r.id, r.event_id, r.race_id, r.runner_id, r.finish, r.bib_number, r.name, r.nation, r.club, r.class, r.time, r.time_sec, r.behind, r.date,
+               (
+                 SELECT CASE 
+                     WHEN MAX(CASE WHEN rr.finish IS NOT NULL THEN rr.finish END) IS NOT NULL 
+                       THEN MAX(CASE WHEN rr.finish IS NOT NULL THEN rr.finish END)
+                     ELSE COUNT(*)
+                 END
+                 FROM rundb_results rr
+                 WHERE rr.event_id = r.event_id
+                   AND ((rr.race_id IS NULL AND r.race_id IS NULL) OR rr.race_id = r.race_id)
+               ) as participants_total
+        FROM rundb_results r
+        WHERE r.event_id = ?
+        ORDER BY CASE WHEN r.finish IS NULL THEN 99999 ELSE r.finish END ASC, r.time_sec ASC
     ''', (event_id,))
     rows = cur.fetchall()
     conn.close()
@@ -323,7 +345,7 @@ def event_results(event_id: str):
     for r in rows:
         out.append(ResultRow(
             id=r[0], event_id=r[1], race_id=r[2], runner_id=r[3], finish=r[4], bib_number=r[5],
-            name=r[6], nation=r[7], club=r[8], class_field=r[9], time=r[10], time_sec=r[11], behind=r[12], date=r[13]
+            name=r[6], nation=r[7], club=r[8], class_field=r[9], time=r[10], time_sec=r[11], behind=r[12], date=r[13], participants_total=r[14]
         ))
     return out
 
@@ -332,7 +354,13 @@ def event_results(event_id: str):
 def list_runners():
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute('SELECT id, name, sex, date, club, country, avatar_url FROM rundb_runners')
+    cur.execute('''
+        SELECT r.id, r.name, r.sex, r.date, r.club, r.country, r.avatar_url,
+               COALESCE(v.count, 0) as visits_count,
+               v.last_visit
+        FROM rundb_runners r
+        LEFT JOIN rundb_runner_visits v ON v.runner_id = r.id
+    ''')
     rows = cur.fetchall()
     conn.close()
     return [RDRunner(id=r[0], name=r[1], sex=r[2], date=r[3], club=r[4], country=r[5], avatar_url=r[6]) for r in rows]
@@ -342,12 +370,19 @@ def list_runners():
 def runner_detail(runner_id: str):
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute('SELECT id, name, sex, date, club, country, avatar_url FROM rundb_runners WHERE id = ?', (runner_id,))
+    cur.execute('''
+        SELECT r.id, r.name, r.sex, r.date, r.club, r.country, r.avatar_url,
+               COALESCE(v.count, 0) as visits_count,
+               v.last_visit
+        FROM rundb_runners r
+        LEFT JOIN rundb_runner_visits v ON v.runner_id = r.id
+        WHERE r.id = ?
+    ''', (runner_id,))
     r = cur.fetchone()
     conn.close()
     if not r:
         raise HTTPException(status_code=404, detail='Runner not found')
-    return RDRunner(id=r[0], name=r[1], sex=r[2], date=r[3], club=r[4], country=r[5], avatar_url=r[6])
+    return RDRunner(id=r[0], name=r[1], sex=r[2], date=r[3], club=r[4], country=r[5], avatar_url=r[6], visits_count=r[7], last_visit=r[8])
 
 
 # Latest results endpoint for convenience
@@ -356,9 +391,14 @@ def latest_results(limit: int = 100):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute('''
-        SELECT id, event_id, race_id, runner_id, finish, bib_number, name, nation, club, class, time, time_sec, behind, date
-        FROM rundb_results
-        ORDER BY date DESC, CASE WHEN finish IS NULL THEN 99999 ELSE finish END ASC
+        SELECT r.id, r.event_id, r.race_id, r.runner_id, r.finish, r.bib_number, r.name, r.nation, r.club, r.class, r.time, r.time_sec, r.behind, r.date,
+               (
+                 SELECT COUNT(*) FROM rundb_results rr
+                 WHERE rr.event_id = r.event_id
+                   AND ((rr.race_id IS NULL AND r.race_id IS NULL) OR rr.race_id = r.race_id)
+               ) as participants_total
+        FROM rundb_results r
+        ORDER BY r.date DESC, CASE WHEN r.finish IS NULL THEN 99999 ELSE r.finish END ASC
         LIMIT ?
     ''', (limit,))
     rows = cur.fetchall()
@@ -366,7 +406,7 @@ def latest_results(limit: int = 100):
     return [
         ResultRow(
             id=r[0], event_id=r[1], race_id=r[2], runner_id=r[3], finish=r[4], bib_number=r[5],
-            name=r[6], nation=r[7], club=r[8], class_field=r[9], time=r[10], time_sec=r[11], behind=r[12], date=r[13]
+            name=r[6], nation=r[7], club=r[8], class_field=r[9], time=r[10], time_sec=r[11], behind=r[12], date=r[13], participants_total=r[14]
         ) for r in rows
     ]
 
@@ -376,17 +416,22 @@ def runner_results(runner_id: str):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute('''
-        SELECT id, event_id, race_id, runner_id, finish, bib_number, name, nation, club, class, time, time_sec, behind, date
-        FROM rundb_results
-        WHERE runner_id = ?
-        ORDER BY date DESC, CASE WHEN finish IS NULL THEN 99999 ELSE finish END ASC
+        SELECT r.id, r.event_id, r.race_id, r.runner_id, r.finish, r.bib_number, r.name, r.nation, r.club, r.class, r.time, r.time_sec, r.behind, r.date,
+               (
+                 SELECT COUNT(*) FROM rundb_results rr
+                 WHERE rr.event_id = r.event_id
+                   AND ((rr.race_id IS NULL AND r.race_id IS NULL) OR rr.race_id = r.race_id)
+               ) as participants_total
+        FROM rundb_results r
+        WHERE r.runner_id = ?
+        ORDER BY r.date DESC, CASE WHEN r.finish IS NULL THEN 99999 ELSE r.finish END ASC
     ''', (runner_id,))
     rows = cur.fetchall()
     conn.close()
     return [
         ResultRow(
             id=r[0], event_id=r[1], race_id=r[2], runner_id=r[3], finish=r[4], bib_number=r[5],
-            name=r[6], nation=r[7], club=r[8], class_field=r[9], time=r[10], time_sec=r[11], behind=r[12], date=r[13]
+            name=r[6], nation=r[7], club=r[8], class_field=r[9], time=r[10], time_sec=r[11], behind=r[12], date=r[13], participants_total=r[14]
         ) for r in rows
     ]
 
@@ -416,6 +461,24 @@ def search(q: str):
     runs = [SearchItem(type='runner', id=row[0], label='🏃 ' + row[1]) for row in cur.fetchall()]
     conn.close()
     return evs + runs
+
+
+@app.post('/rundb/runners/{runner_id}/visit')
+def add_visit(runner_id: str):
+    now = datetime.now().isoformat()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute('SELECT count FROM rundb_runner_visits WHERE runner_id = ?', (runner_id,))
+    row = cur.fetchone()
+    if row is None:
+        cur.execute('INSERT INTO rundb_runner_visits (runner_id, count, last_visit) VALUES (?, ?, ?)', (runner_id, 1, now))
+        count = 1
+    else:
+        count = int(row[0] or 0) + 1
+        cur.execute('UPDATE rundb_runner_visits SET count = ?, last_visit = ? WHERE runner_id = ?', (count, now, runner_id))
+    conn.commit()
+    conn.close()
+    return { 'runner_id': runner_id, 'visits_count': count, 'last_visit': now }
 
 
 @app.get('/rundb/athletes', response_model=List[AthleteSummary])

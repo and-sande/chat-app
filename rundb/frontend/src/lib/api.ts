@@ -21,7 +21,7 @@ export type Event = {
   races?: EventRace[]
 }
 
-export type Runner = { id: string; name: string; sex?: string | null; date?: string | null; club?: string | null; country?: string | null; avatar_url?: string | null }
+export type Runner = { id: string; name: string; sex?: string | null; date?: string | null; club?: string | null; country?: string | null; avatar_url?: string | null; visits_count?: number | null; last_visit?: string | null }
 export type Athlete = Runner & {
   run_count: number
   last_race_date?: string | null
@@ -51,6 +51,7 @@ export const api = {
   stats: () => get<Stats>(`/rundb/stats`),
   search: (q: string) => get<SearchItem[]>(`/rundb/search?q=${encodeURIComponent(q)}`),
   results: (limit = 100) => get<any[]>(`/rundb/results?limit=${limit}`),
+  runnerVisit: (id: string) => fetch(`${API_BASE}/rundb/runners/${id}/visit`, { method: 'POST' }).then(r => r.json()),
   athletes: (p?: {
     q?: string
     sex?: 'M'|'F'|''

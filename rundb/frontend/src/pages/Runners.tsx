@@ -174,13 +174,20 @@ export default function Runners() {
               <div className="row" style={{gap:12, alignItems:'center'}}>
                 <Avatar name={a.name} src={a.avatar_url ?? undefined} size={52} />
                 <div className="card-text">
-                  <div className="run-title" style={{margin:0, fontSize:17}}>{a.name}</div>
+                  <div className="run-title" style={{margin:0, fontSize:17, display:'flex', alignItems:'center', gap:8}}>
+                    {a.name}
+                    {typeof a.popularity_star === 'number' && a.popularity_star > 0 && (
+                      <span className="pill" title="Popularity">{'★'.repeat(Math.max(1, a.popularity_star || 1))}</span>
+                    )}
+                    {(a.podium_1 || a.podium_2 || a.podium_3) ? (
+                      <span className="pill" title="Podiums">🥇{a.podium_1||0} 🥈{a.podium_2||0} 🥉{a.podium_3||0}</span>
+                    ) : null}
+                  </div>
                   <div className="runner-meta" style={{marginTop:4}}>
                     <span>{a.club ?? 'Independent'}</span>
                     {a.country && <span>· {a.country}</span>}
                     {a.sex && <span>· {a.sex}</span>}
                     <span className="pill">🏁 {a.run_count}</span>
-                    {a.podium_top3 ? <span className="pill">🥇{a.podium_1||0} 🥈{a.podium_2||0} 🥉{a.podium_3||0}</span> : null}
                   </div>
                 </div>
               </div>

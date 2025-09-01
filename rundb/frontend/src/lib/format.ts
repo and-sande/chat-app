@@ -16,3 +16,18 @@ export function formatDateISO(iso: string) {
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' })
 }
+
+// 18. aug 2025 (Norwegian short month, lower-case)
+export function formatDateNOShort(iso: string) {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return iso
+    const day = d.getDate().toString().padStart(2, '0')
+    const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des']
+    const month = months[d.getMonth()]
+    const year = d.getFullYear()
+    return `${day}. ${month} ${year}`
+  } catch {
+    return iso
+  }
+}
