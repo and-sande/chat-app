@@ -150,6 +150,7 @@ export default function Runners() {
             {top3.map((a, idx) => (
               <div key={a.id} onClick={()=>navigate(`/runner/${a.id}`)} role="link" tabIndex={0} onKeyDown={(e)=>{if(e.key==='Enter') navigate(`/runner/${a.id}`)}} style={{textDecoration:'none', color:'inherit'}}>
                 <div className="runner-card" style={{padding:'10px 12px', minWidth:260, cursor:'pointer'}}>
+                  <span className="pill corner-top-right" title="Total podiums">🏆 {a.podium_top3 ?? ((a.podium_1||0)+(a.podium_2||0)+(a.podium_3||0))}</span>
                   <div className="row" style={{gap:10, alignItems:'center'}}>
                     <div className="pill" style={{fontWeight:700}}>{idx+1}</div>
                     <Avatar name={a.name} src={a.avatar_url ?? undefined} size={48} />
@@ -171,17 +172,17 @@ export default function Runners() {
         {athletes.map(a => (
           <div key={a.id} onClick={()=>navigate(`/runner/${a.id}`)} role="link" tabIndex={0} onKeyDown={(e)=>{if(e.key==='Enter') navigate(`/runner/${a.id}`)}} style={{textDecoration:'none', color:'inherit'}}>
             <div className="runner-card" style={{padding:'12px 14px', cursor:'pointer'}}>
+              {(a.podium_1 || a.podium_2 || a.podium_3) ? (
+                <span className="pill corner-top-right" title="Podiums" style={{whiteSpace:'nowrap'}}>🥇{a.podium_1||0} 🥈{a.podium_2||0} 🥉{a.podium_3||0}</span>
+              ) : null}
               <div className="row" style={{gap:12, alignItems:'center'}}>
                 <Avatar name={a.name} src={a.avatar_url ?? undefined} size={52} />
                 <div className="card-text">
-                  <div className="run-title" style={{margin:0, fontSize:17, display:'flex', alignItems:'center', gap:8}}>
+                  <div className="run-title" style={{margin:0, fontSize:17, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
                     {a.name}
                     {typeof a.popularity_star === 'number' && a.popularity_star > 0 && (
                       <span className="pill" title="Popularity">{'★'.repeat(Math.max(1, a.popularity_star || 1))}</span>
                     )}
-                    {(a.podium_1 || a.podium_2 || a.podium_3) ? (
-                      <span className="pill" title="Podiums">🥇{a.podium_1||0} 🥈{a.podium_2||0} 🥉{a.podium_3||0}</span>
-                    ) : null}
                   </div>
                   <div className="runner-meta" style={{marginTop:4}}>
                     <span>{a.club ?? 'Independent'}</span>
