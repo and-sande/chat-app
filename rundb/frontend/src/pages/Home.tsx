@@ -1,20 +1,46 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Hero from '../components/Hero'
 import RunnerCard from '../components/RunnerCard'
-import { runners } from '../data/runners'
-import { api, type Event, type Stats } from '../lib/api'
+import { api, type Event, type Stats, type Athlete } from '../lib/api'
+import { formatDateNODayMonth } from '../lib/format'
 
 export default function Home() {
   const nav = useNavigate()
   const [stats, setStats] = useState<Stats | null>(null)
   const [upcoming, setUpcoming] = useState<Event[]>([])
+  const [popular, setPopular] = useState<Athlete[]>([])
+  const [latest, setLatest] = useState<any[]>([])
+  const [eventsById, setEventsById] = useState<Record<string, Event>>({})
   useEffect(() => {
     let mounted = true
     api.stats().then(s => { if (mounted) setStats(s) }).catch(()=>{})
     api.events({ upcoming: true }).then(ev => { if (mounted) setUpcoming(ev) }).catch(()=>{})
+    api.athletes({ top: 'popular3' as any, popularity_min: 1 }).then(a => { if (mounted) setPopular(a.slice(0,3)) }).catch(()=>{})
+    api.results(50).then(r => { if (mounted) setLatest(r) }).catch(()=>{})
+    api.events().then(all => { if (!mounted) return; const map: Record<string, Event> = {}; all.forEach(e => map[e.id] = e); setEventsById(map) }).catch(()=>{})
     return () => { mounted = false }
   }, [])
+
+  // group latest results by event+date to get winner + participants
+  const latestSummaries = useMemo(() => {
+    const groups: Record<string, { key: string; event_id: string; date: string; participants: number; winner?: string; time?: string }> = {}
+    latest.forEach(r => {
+      const key = `${r.event_id}|${String(r.date || '').slice(0,10)}`
+      const prev = groups[key]
+      const participants = typeof r.participants_total === 'number' ? r.participants_total : 0
+      const isWinner = Number(r.finish) === 1
+      groups[key] = {
+        key,
+        event_id: r.event_id,
+        date: String(r.date || '').slice(0,10),
+        participants: Math.max(prev?.participants ?? 0, participants),
+        winner: isWinner ? (r.name ?? prev?.winner) : prev?.winner,
+        time: isWinner ? (r.time ?? prev?.time) : prev?.time,
+      }
+    })
+    return Object.values(groups).sort((a,b)=> b.date.localeCompare(a.date)).slice(0,6)
+  }, [latest])
   return (
     <div className="grid" style={{gridTemplateColumns: '2fr 1fr'}}>
       <div>
@@ -36,17 +62,81 @@ export default function Home() {
           <button className="btn" onClick={()=> nav('/leaderboards')}>View leaderboards</button>
         </div>
         <div className="grid" style={{marginTop: 8}}>
-          {runners.slice(0, 4).map(r => (
-            <RunnerCard key={r.id} runner={r} />
+          {popular.map(a => (
+            <RunnerCard key={a.id} runner={{
+              id: a.id,
+              name: a.name,
+              club: a.club ?? undefined,
+              country: a.country ?? undefined,
+              avatarUrl: a.avatar_url ?? undefined,
+              age: undefined,
+              results: [],
+            } as any} />
           ))}
         </div>
 
         <div className="row" style={{justifyContent:'space-between', marginTop: 24}}>
-          <h3 style={{margin:0}}>Popular runs</h3>
-          <button className="btn ghost" onClick={()=> nav('/competitions')}>Browse all</button>
+          <h3 style={{margin:0}}>Upcoming highlights</h3>
+          <button className="btn ghost" onClick={()=> nav('/upcoming')}>View all</button>
         </div>
-        <div className="panel" style={{marginTop:8}}>
-          <div className="muted">Connected to API. Explore competitions for details.</div>
+        <div className="grid" style={{marginTop:8}}>
+          {upcoming.slice(0,3).map(ev => (
+            <div key={ev.id} className="event-card">
+              {ev.image_url ? (
+                <img src={ev.image_url} alt="event" className="event-thumb-large" />
+              ) : (
+                <div className="event-thumb-large ph" style={{ background: '#0e1324' }}>{(ev.name?.split(' ').slice(0,2).map(s=>s[0]).join('') || '—').toUpperCase()}</div>
+              )}
+              <div className="event-card-body">
+                <div className="row" style={{justifyContent:'space-between', alignItems:'flex-start'}}>
+                  <div style={{minWidth:0}}>
+                    <h3 style={{margin:'0 0 6px 0', fontSize:20}}><a href={`/competition/${ev.id}`}>{ev.name}</a></h3>
+                    <div className="runner-meta" style={{fontSize:14}}>
+                      <span className="pill">{formatDateNODayMonth(ev.date)}{ev.start_time ? ` ${ev.start_time}` : ''}</span>
+                      {ev.location_city || ev.location_country ? (
+                        <span className="meta-pill">{ev.location_city ?? ''}{ev.location_city && ev.location_country ? ', ' : ''}{ev.location_country ?? ''}</span>
+                      ) : null}
+                      <span className="badge">{ev.sport ?? '—'}</span>
+                      {typeof ev.distance_km === 'number' && <span className="pill">{ev.distance_km} km</span>}
+                      {ev.premium && <span className="badge premium">Premium</span>}
+                    </div>
+                  </div>
+                  <div className="card-right" style={{gap:6}}>
+                    <a className="btn ghost" href={`/competition/${ev.id}`}>Details</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="row" style={{justifyContent:'space-between', marginTop: 24}}>
+          <h3 style={{margin:0}}>Latest results</h3>
+          <button className="btn ghost" onClick={()=> nav('/results')}>Browse all</button>
+        </div>
+        <div className="panel" style={{padding:0, marginTop:8}}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Event</th>
+                <th>Winner</th>
+                <th>Time</th>
+                <th>Participants</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestSummaries.map(s => (
+                <tr key={s.key}>
+                  <td>{formatDateNODayMonth(s.date)}</td>
+                  <td>{eventsById[s.event_id]?.name ?? s.event_id}</td>
+                  <td>{s.winner ?? '—'}</td>
+                  <td>{s.time ?? '—'}</td>
+                  <td>{s.participants || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
       <div>
@@ -61,14 +151,16 @@ export default function Home() {
         </div>
 
         <div className="panel" style={{marginTop:12}}>
-          <div className="row" style={{justifyContent:'space-between'}}>
-            <h3 style={{margin:0}}>Upcoming events</h3>
-          </div>
-          <ul style={{marginTop:8}}>
+          <h3 style={{margin:0}}>Upcoming events</h3>
+          <ul style={{marginTop:10, listStyle:'none', padding:0}}>
             {upcoming.map(c => (
-              <li key={c.id} className="row" style={{justifyContent:'space-between'}}>
-                <span>{c.premium ? '⭐ ' : ''}{c.name}</span>
-                <span className="muted">{new Date(c.date).toLocaleDateString()} · {c.enrolled_count ?? 0} enrolled</span>
+              <li key={c.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding:'6px 0'}}>
+                <div style={{flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  {c.premium ? '⭐ ' : ''}{c.name}
+                </div>
+                <div className="muted" style={{whiteSpace:'nowrap'}}>
+                  {formatDateNODayMonth(c.date)} · {c.enrolled_count ?? 0} enrolled
+                </div>
               </li>
             ))}
           </ul>

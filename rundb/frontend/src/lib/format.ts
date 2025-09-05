@@ -31,3 +31,17 @@ export function formatDateNOShort(iso: string) {
     return iso
   }
 }
+
+// 06. september (Norwegian full month, lower-case, no year)
+export function formatDateNODayMonth(iso: string) {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return iso
+    const day = d.getDate().toString().padStart(2, '0')
+    const months = ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember']
+    const month = months[d.getMonth()]
+    return `${day}. ${month}`
+  } catch {
+    return iso
+  }
+}
