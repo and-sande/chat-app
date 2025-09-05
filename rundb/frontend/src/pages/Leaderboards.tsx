@@ -1,69 +1,83 @@
-import { useMemo, useState } from 'react'
-import { runners } from '../data/runners'
-import { bestTimeAtDistanceSec, racesInDays, totalRaces } from '../lib/metrics'
-import { computeBadges, formatSeconds } from '../lib/badges'
+import { useEffect, useMemo, useState } from 'react'
+import { api, type Athlete } from '../lib/api'
 
-type Metric = 'most-active' | 'best-time'
+type Metric = 'most-active' | 'most-popular' | 'most-viewed'
 
 export default function Leaderboards() {
   const [metric, setMetric] = useState<Metric>('most-active')
-  const [days, setDays] = useState<number>(90)
-  const [distance, setDistance] = useState<number | 'any'>(5)
+  const [athletes, setAthletes] = useState<Athlete[]>([])
+  const [sex, setSex] = useState<string>('')
+  const [country, setCountry] = useState<string>('')
+  const [minRuns, setMinRuns] = useState<number>(0)
+
+  useEffect(() => {
+    let mounted = true
+    const load = () => api.athletes({ sex: sex as any, min_runs: minRuns, top: undefined })
+      .then(a => { if (mounted) setAthletes(a) })
+      .catch(()=>{})
+    load()
+    return () => { mounted = false }
+  }, [sex, minRuns])
+
+  const countries = useMemo(() => {
+    const set = new Set<string>()
+    athletes.forEach(a => { if (a.country) set.add(a.country) })
+    return Array.from(set).sort()
+  }, [athletes])
 
   const data = useMemo(() => {
+    let rows = athletes.filter(a => (country ? a.country === country : true))
     if (metric === 'most-active') {
-      return [...runners]
-        .map(r => ({
-          runner: r,
-          value: days === Infinity ? totalRaces(r) : racesInDays(r, days).length,
-          note: days === Infinity ? `${totalRaces(r)} races total` : `${racesInDays(r, days).length} races last ${days}d`,
-        }))
-        .sort((a,b) => b.value - a.value)
+      return rows
+        .map(a => ({ athlete: a, value: a.run_count || 0, aux: `Runs: ${a.run_count ?? 0}` }))
+        .sort((a,b) => (b.value - a.value))
     }
-    // best-time
-    const dist = distance === 'any' ? 5 : distance
-    return [...runners]
-      .map(r => ({
-        runner: r,
-        value: bestTimeAtDistanceSec(r, dist) ?? Number.POSITIVE_INFINITY,
-        note: bestTimeAtDistanceSec(r, dist) ? `${dist}K PB` : '—',
-      }))
-      .sort((a,b) => a.value - b.value)
-  }, [metric, days, distance])
+    if (metric === 'most-popular') {
+      return rows
+        .map(a => ({ athlete: a, value: a.popularity || 0, aux: `${'★'.repeat(Math.max(1, a.popularity_star || 1))}` }))
+        .sort((a,b) => (b.value - a.value))
+    }
+    // most-viewed
+    return rows
+      .map(a => ({ athlete: a, value: a.visits_count || 0, aux: a.last_visit ? `Last viewed: ${new Date(a.last_visit).toLocaleDateString()}` : '' }))
+      .sort((a,b) => (b.value - a.value))
+  }, [athletes, metric, country])
 
   return (
     <div>
       <h2>Leaderboards</h2>
-      <p className="muted">Filter by metric, time window, and distance to explore standout athletes.</p>
+      <p className="muted">Explore standout athletes by activity, popularity, and views.</p>
 
-      <div className="controls panel" style={{display:'flex', gap:12, alignItems:'center'}}>
+      <div className="controls panel" style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap'}}>
         <div className="row" style={{gap:8}}>
           <button className={`chip ${metric==='most-active'?'selected':''}`} onClick={() => setMetric('most-active')}>Most Active</button>
-          <button className={`chip ${metric==='best-time'?'selected':''}`} onClick={() => setMetric('best-time')}>Best Time</button>
+          <button className={`chip ${metric==='most-popular'?'selected':''}`} onClick={() => setMetric('most-popular')}>Most Popular</button>
+          <button className={`chip ${metric==='most-viewed'?'selected':''}`} onClick={() => setMetric('most-viewed')}>Most Viewed</button>
         </div>
-
-        {metric === 'most-active' && (
-          <div className="row" style={{gap:8}}>
-            <label className="muted">Window</label>
-            <select className="input" style={{width: 140}} value={String(days)} onChange={(e)=> setDays(e.target.value === 'Infinity' ? Infinity : Number(e.target.value))}>
-              <option value="30">Last 30 days</option>
-              <option value="90">Last 90 days</option>
-              <option value="365">Last 365 days</option>
-              <option value="Infinity">All time</option>
-            </select>
-          </div>
-        )}
-
-        {metric === 'best-time' && (
-          <div className="row" style={{gap:8}}>
-            <label className="muted">Distance</label>
-            <select className="input" style={{width: 140}} value={String(distance)} onChange={(e)=> setDistance(e.target.value === 'any' ? 'any' : Number(e.target.value))}>
-              <option value="5">5K</option>
-              <option value="10">10K</option>
-              <option value="21.0975">Half</option>
-            </select>
-          </div>
-        )}
+        <div className="row" style={{gap:8}}>
+          <label className="muted">Sex</label>
+          <select className="input" style={{width: 120}} value={sex} onChange={(e)=> setSex(e.target.value)}>
+            <option value="">All</option>
+            <option value="F">Female</option>
+            <option value="M">Male</option>
+          </select>
+        </div>
+        <div className="row" style={{gap:8}}>
+          <label className="muted">Min runs</label>
+          <select className="input" style={{width: 120}} value={String(minRuns)} onChange={(e)=> setMinRuns(Number(e.target.value))}>
+            <option value="0">Any</option>
+            <option value="10">10+</option>
+            <option value="25">25+</option>
+            <option value="50">50+</option>
+          </select>
+        </div>
+        <div className="row" style={{gap:8}}>
+          <label className="muted">Country</label>
+          <select className="input" style={{width: 120}} value={country} onChange={(e)=> setCountry(e.target.value)}>
+            <option value="">All</option>
+            {countries.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="panel" style={{padding:0, marginTop: 12}}>
@@ -73,23 +87,19 @@ export default function Leaderboards() {
               <th>#</th>
               <th>Runner</th>
               <th>Club</th>
-              <th>Badges</th>
-              <th style={{textAlign:'right'}}>{metric === 'most-active' ? 'Races' : 'Best Time'}</th>
+              <th>Country</th>
+              <th style={{textAlign:'right'}}>{metric === 'most-active' ? 'Runs' : metric === 'most-popular' ? 'Popularity' : 'Views'}</th>
             </tr>
           </thead>
           <tbody>
             {data.map((row, i) => (
-              <tr key={row.runner.id}>
+              <tr key={row.athlete.id}>
                 <td>{i+1}</td>
-                <td>{row.runner.name}</td>
-                <td className="muted">{row.runner.club ?? 'Independent'}</td>
-                <td>
-                  {computeBadges(row.runner).slice(0,2).map(b => (
-                    <span key={b.id} className={`badge ${b.tone ?? 'default'}`} style={{marginRight:6}}>{b.icon} {b.label}</span>
-                  ))}
-                </td>
+                <td>{row.athlete.name}</td>
+                <td className="muted">{row.athlete.club ?? 'Independent'}</td>
+                <td className="muted">{row.athlete.country ?? '—'}</td>
                 <td style={{textAlign:'right'}}>
-                  {metric === 'most-active' ? row.value : (row.value === Number.POSITIVE_INFINITY ? '—' : formatSeconds(row.value))}
+                  {metric === 'most-active' ? row.value : metric === 'most-popular' ? `${row.value} (${row.aux})` : `${row.value}${row.aux ? ` · ${row.aux}` : ''}`}
                 </td>
               </tr>
             ))}
@@ -99,4 +109,3 @@ export default function Leaderboards() {
     </div>
   )
 }
-

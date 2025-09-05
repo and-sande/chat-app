@@ -5,11 +5,13 @@ type Props<T> = {
   onSelect: (item: T) => void
   placeholder?: string
   display: (item: T) => string
+  autoFocus?: boolean
 }
 
-export default function SearchBar<T>({ data, onSelect, placeholder, display }: Props<T>) {
+export default function SearchBar<T>({ data, onSelect, placeholder, display, autoFocus }: Props<T>) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
+  const [inputEl, setInputEl] = useState<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setOpen(q.trim().length > 0)
@@ -21,6 +23,12 @@ export default function SearchBar<T>({ data, onSelect, placeholder, display }: P
     return data.filter((d) => display(d).toLowerCase().includes(query)).slice(0, 8)
   }, [q, data, display])
 
+  useEffect(() => {
+    if (autoFocus && inputEl) {
+      inputEl.focus()
+    }
+  }, [autoFocus, inputEl])
+
   return (
     <div className="panel" style={{position: 'relative'}}>
       <input
@@ -30,6 +38,8 @@ export default function SearchBar<T>({ data, onSelect, placeholder, display }: P
         onChange={(e) => setQ(e.target.value)}
         onFocus={() => setOpen(q.trim().length > 0)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
+        ref={setInputEl}
+        autoFocus={autoFocus}
       />
       {open && results.length > 0 && (
         <div style={{position:'absolute', top: '100%', left: 0, right: 0, background: '#0f1322', border: '1px solid #22283a', borderRadius: 10, marginTop: 6}}>
@@ -43,4 +53,3 @@ export default function SearchBar<T>({ data, onSelect, placeholder, display }: P
     </div>
   )
 }
-

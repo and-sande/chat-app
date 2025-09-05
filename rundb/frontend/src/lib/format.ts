@@ -45,3 +45,16 @@ export function formatDateNODayMonth(iso: string) {
     return iso
   }
 }
+
+// 6/9 (day/month, no leading zeros)
+export function formatDateDMSlash(iso: string) {
+  try {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return iso
+    const day = d.getDate() // no pad
+    const month = d.getMonth() + 1 // 1-based, no pad
+    return `${day}/${month}`
+  } catch {
+    return iso
+  }
+}

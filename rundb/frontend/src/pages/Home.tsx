@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Hero from '../components/Hero'
 import RunnerCard from '../components/RunnerCard'
 import { api, type Event, type Stats, type Athlete } from '../lib/api'
-import { formatDateNODayMonth } from '../lib/format'
+import { formatDateNODayMonth, formatDateDMSlash } from '../lib/format'
 
 export default function Home() {
   const nav = useNavigate()
@@ -42,7 +42,7 @@ export default function Home() {
     return Object.values(groups).sort((a,b)=> b.date.localeCompare(a.date)).slice(0,6)
   }, [latest])
   return (
-    <div className="grid" style={{gridTemplateColumns: '2fr 1fr'}}>
+    <div className="grid" style={{gridTemplateColumns: 'minmax(0,1fr) 360px'}}>
       <div>
         <Hero
           title={<span>Track your runs. Celebrate progress.</span>}
@@ -79,35 +79,21 @@ export default function Home() {
           <h3 style={{margin:0}}>Upcoming highlights</h3>
           <button className="btn ghost" onClick={()=> nav('/upcoming')}>View all</button>
         </div>
-        <div className="grid" style={{marginTop:8}}>
-          {upcoming.slice(0,3).map(ev => (
-            <div key={ev.id} className="event-card">
-              {ev.image_url ? (
-                <img src={ev.image_url} alt="event" className="event-thumb-large" />
-              ) : (
-                <div className="event-thumb-large ph" style={{ background: '#0e1324' }}>{(ev.name?.split(' ').slice(0,2).map(s=>s[0]).join('') || '—').toUpperCase()}</div>
-              )}
-              <div className="event-card-body">
-                <div className="row" style={{justifyContent:'space-between', alignItems:'flex-start'}}>
-                  <div style={{minWidth:0}}>
-                    <h3 style={{margin:'0 0 6px 0', fontSize:20}}><a href={`/competition/${ev.id}`}>{ev.name}</a></h3>
-                    <div className="runner-meta" style={{fontSize:14}}>
-                      <span className="pill">{formatDateNODayMonth(ev.date)}{ev.start_time ? ` ${ev.start_time}` : ''}</span>
-                      {ev.location_city || ev.location_country ? (
-                        <span className="meta-pill">{ev.location_city ?? ''}{ev.location_city && ev.location_country ? ', ' : ''}{ev.location_country ?? ''}</span>
-                      ) : null}
-                      <span className="badge">{ev.sport ?? '—'}</span>
-                      {typeof ev.distance_km === 'number' && <span className="pill">{ev.distance_km} km</span>}
-                      {ev.premium && <span className="badge premium">Premium</span>}
-                    </div>
-                  </div>
-                  <div className="card-right" style={{gap:6}}>
-                    <a className="btn ghost" href={`/competition/${ev.id}`}>Details</a>
-                  </div>
+        <div className="panel" style={{marginTop:8}}>
+          <ul style={{listStyle:'none', padding:0, margin:0}}>
+            {upcoming.slice(0,3).map(ev => (
+              <li key={ev.id} className="row" style={{justifyContent:'space-between', padding:'6px 0'}}>
+                <div style={{flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  <a className="pill link" href={`/competition/${ev.id}`}>{ev.name}</a>
+                  {ev.premium && <span className="badge premium" style={{marginLeft:8}}>Premium</span>}
                 </div>
-              </div>
-            </div>
-          ))}
+                <div className="muted" style={{whiteSpace:'nowrap'}}>
+                  {formatDateDMSlash(ev.date)}{ev.start_time ? ` ${ev.start_time}` : ''}
+                  {typeof ev.distance_km === 'number' ? ` · ${ev.distance_km} km` : ''}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="row" style={{justifyContent:'space-between', marginTop: 24}}>
@@ -156,10 +142,12 @@ export default function Home() {
             {upcoming.map(c => (
               <li key={c.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding:'6px 0'}}>
                 <div style={{flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                  {c.premium ? '⭐ ' : ''}{c.name}
+                  <a href={`/competition/${c.id}`} style={{color:'inherit', textDecoration:'none'}}>
+                    {c.premium ? '⭐ ' : ''}{c.name}
+                  </a>
                 </div>
                 <div className="muted" style={{whiteSpace:'nowrap'}}>
-                  {formatDateNODayMonth(c.date)} · {c.enrolled_count ?? 0} enrolled
+                  {formatDateDMSlash(c.date)} · {c.enrolled_count ?? 0} enrolled
                 </div>
               </li>
             ))}

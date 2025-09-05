@@ -78,7 +78,8 @@ body { margin: 0; color: var(--text); background: radial-gradient(1200px 600px a
 .kpi .item .value { font-size: 22px; font-weight: 800; }
 
 /* Hero */
-.hero { position: relative; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: linear-gradient(140deg, rgba(43,214,123,0.15), rgba(15,27,46,0.4) 45%, rgba(107,220,255,0.12)); }
+.hero { position: relative; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: linear-gradient(140deg, rgba(43,214,123,0.15), rgba(15,27,46,0.4) 45%, rgba(107,220,255,0.12)); min-height: 220px; }
+.hero .hero-bgimg { position:absolute; inset:0; background-size: cover; background-position: center; opacity: 0.22; filter: saturate(115%) contrast(1.05); }
 .hero:before { content:''; position:absolute; inset:-20%; background: radial-gradient(600px 220px at 20% -10%, rgba(43,214,123,0.22), transparent), radial-gradient(600px 220px at 80% -10%, rgba(107,220,255,0.18), transparent); filter: blur(12px); }
 .hero-inner { position: relative; display:flex; align-items:center; justify-content: space-between; padding: 22px; }
 .hero-title { margin:0; font-size: 28px; font-weight: 900; letter-spacing: .2px; }
@@ -110,3 +111,11 @@ body { margin: 0; color: var(--text); background: radial-gradient(1200px 600px a
 
 /* Competition detail banner */
 .event-banner { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; height: 240px; background-size: cover; background-position: center; box-shadow: 0 10px 30px rgba(0,0,0,0.35); margin-bottom: 10px; }
+
+/* Event cards (used on Results/Upcoming) */
+.event-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 10px 28px rgba(0,0,0,0.25); }
+.event-thumb-large { width: 100%; height: 180px; object-fit: cover; display:block; border-bottom: 1px solid var(--line); background: #0e1324; }
+.event-thumb-large.ph { display:flex; align-items:center; justify-content:center; font-weight:900; font-size: 22px; color: #e2e8f0; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+.event-card-body { padding: 12px 14px; }
+.event-card a, .event-card a:visited { color: var(--text); text-decoration: none; }
+.event-card a:hover { text-decoration: underline; }

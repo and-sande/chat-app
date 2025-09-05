@@ -97,6 +97,9 @@ npm run dev          # Start development server
 npm run build        # Build for production
 npm run preview      # Preview production build
 npm run lint         # Run ESLint
+npm run tunnel       # Expose Vite dev (port 3000) via ngrok CLI
+npm run tunnel:web   # Same as above
+npm run tunnel:backend # Expose FastAPI (port 8000) via ngrok CLI
 ```
 
 ### Backend Scripts
@@ -143,6 +146,49 @@ chat-app/
 3. **Chat**: Send real-time messages in any channel
 4. **Create Channels**: Add new channels with descriptions
 5. **Home Dashboard**: Overview of all available channels
+
+## 🌍 Share Locally via ngrok
+
+You can expose your local dev server using ngrok to share with others while developing in VS Code.
+
+1) Install ngrok CLI (one-time):
+```bash
+# macOS (Homebrew)
+brew install ngrok/ngrok/ngrok
+```
+Then configure your auth token for stable URLs:
+```bash
+ngrok config add-authtoken <YOUR_TOKEN>
+# Or set env var for one-off
+export NGROK_AUTHTOKEN=<YOUR_TOKEN>
+```
+
+2) Start backend and frontend locally:
+```bash
+# Terminal A
+python backend/main.py  # serves http://localhost:8000
+
+# Terminal B (root)
+npm run dev             # serves http://localhost:3000
+```
+
+3) Start the tunnel (choose one):
+```bash
+# Frontend (recommended, proxies API and WS via Vite)
+npm run tunnel:web
+
+# Or expose backend directly
+npm run tunnel:backend
+```
+The command prints a Public URL like https://<id>.ngrok-free.app you can share.
+
+### VS Code Tasks
+- "Backend: FastAPI (8000)" — runs the API
+- "Frontend: Vite (3000)" — runs the Vite dev server
+- "Tunnel: ngrok → 3000" — exposes the Vite dev server
+- "Tunnel: ngrok → 8000" — exposes the API server
+
+Open the Command Palette → "Tasks: Run Task" to launch any of these.
 
 ## 🔒 Security Features
 

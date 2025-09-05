@@ -127,10 +127,44 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Build allowed origins from defaults + env overrides for tunnels
+def build_cors_config():
+    default_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5175",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5175",
+    ]
+
+    # Allow a single tunnel origin via NGROK_URL or PUBLIC_ORIGIN
+    extra_origins = []
+    for var in ("NGROK_URL", "PUBLIC_ORIGIN"):
+        val = os.getenv(var)
+        if val:
+            extra_origins.append(val.strip())
+
+    # Comma-separated list or "*" via CORS_ALLOW_ORIGINS
+    cors_env = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+    if cors_env == "*":
+        return {"origins": ["*"], "credentials": False}
+    elif cors_env:
+        env_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+        allow_origins = list(dict.fromkeys(default_origins + extra_origins + env_origins))
+        return {"origins": allow_origins, "credentials": True}
+    else:
+        allow_origins = list(dict.fromkeys(default_origins + extra_origins))
+        return {"origins": allow_origins, "credentials": True}
+
+cors_cfg = build_cors_config()
+print("🔐 CORS allowed origins:", cors_cfg["origins"])
+print("🔐 CORS allow_credentials:", cors_cfg["credentials"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
-    allow_credentials=True,
+    allow_origins=cors_cfg["origins"],
+    allow_credentials=cors_cfg["credentials"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

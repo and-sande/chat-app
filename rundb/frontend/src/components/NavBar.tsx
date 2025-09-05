@@ -1,10 +1,11 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar'
 import { useEffect, useState } from 'react'
 import { api, type SearchItem } from '../lib/api'
 
 export default function NavBar() {
   const nav = useNavigate()
+  const loc = useLocation()
   const [items, setItems] = useState<SearchItem[]>([])
   useEffect(() => {
     let mounted = true
@@ -31,7 +32,7 @@ export default function NavBar() {
         <NavLink to="/results" className={({isActive}) => isActive ? 'active' : ''}>Results</NavLink>
         <NavLink to="/upcoming" className={({isActive}) => isActive ? 'active' : ''}>Upcoming</NavLink>
         <NavLink to="/leaderboards" className={({isActive}) => isActive ? 'active' : ''}>Leaderboards</NavLink>
-        <div style={{minWidth: 320, maxWidth: 420}}>
+        <div style={{minWidth: 420, maxWidth: 560}}>
           <SearchBar<SearchItem>
             data={items}
             display={(it) => it.label}
@@ -40,6 +41,7 @@ export default function NavBar() {
               if (it.type === 'event') nav(`/competition/${it.id}`)
             }}
             placeholder="Search athletes and events"
+            autoFocus={loc.pathname === '/'}
           />
         </div>
       </div>

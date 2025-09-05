@@ -5,7 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5175
+    host: true,
+    port: 5175,
+    // Allow access via tunnels like ngrok/cloudflared
+    allowedHosts: true
   }
 })
-
